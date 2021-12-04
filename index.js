@@ -34,6 +34,7 @@ app.use(
     ":method :url :status :res[content-length] - :response-time ms :resData"
   )
 );
+app.use(express.static("build"));
 
 app.get("/api/persons", (req, res) => {
   res.json(persons);
