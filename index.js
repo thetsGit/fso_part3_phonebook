@@ -1,32 +1,22 @@
-var persons = [
-  {
-    id: 1,
-    name: "Arto Hellas",
-    number: "040-123456",
-  },
-  {
-    id: 2,
-    name: "Ada Lovelace",
-    number: "39-44-5323523",
-  },
-  {
-    id: 3,
-    name: "Dan Abramov",
-    number: "12-43-234345",
-  },
-  {
-    id: 4,
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-  },
-];
+require("dotenv").config();
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
+const Person = require("./models/person");
 
 morgan.token("resData", (req, res) => JSON.stringify(req.body));
 
 const app = express();
+const errorHandler = (err, req, res, next) => {
+  console.log(err.message);
+  if (err.name === "CastError") {
+    return res.status(400).send({ err: "malformatted id" });
+  }
+  if (err.name === "ValidationError") {
+    return res.status(400).send({ err: err.message });
+  }
+  next(err);
+};
 app.use(express.json());
 app.use(cors());
 app.use(
@@ -37,55 +27,89 @@ app.use(
 app.use(express.static("build"));
 
 app.get("/api/persons", (req, res) => {
-  res.json(persons);
+  Person.find({}).then((datas) => {
+    res.json(datas);
+    console.log(datas);
+  });
 });
 
 app.get("/info", (req, res) => {
-  const now = new Date();
-  res.send(
-    `<p>Phonebook has info for ${persons.length} people</p><p>${now}</p>`
-  );
+  Person.find({}).then((dbRes) => {
+    const now = new Date();
+    res.send(
+      `<p>Phonebook has info for ${dbRes.length} people</p><p>${now}</p>`
+    );
+  });
 });
 
-app.get("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const validPerson = persons.find((p) => p.id === id);
-  if (validPerson) {
-    res.json(validPerson);
-    return;
-  }
-  res.statusMessage = "Requested data is unavailable";
-  res.status(404).end();
+app.get("/api/persons/:id", (req, res, next) => {
+  const id = req.params.id;
+  Person.findById(id)
+    .then((dbRes) => {
+      if (dbRes) {
+        res.json(dbRes);
+        return;
+      }
+      res.statusMessage = "Requested data is unavailable";
+      res.status(404).end();
+    })
+    .catch((err) => {
+      next(err);
+    });
 });
 
-app.delete("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  persons = persons.filter((p) => p.id !== id);
-  console.log(persons);
-  res.status(204).end();
+app.delete("/api/persons/:id", (req, res, next) => {
+  const id = req.params.id;
+  Person.findByIdAndDelete(id)
+    .then((response) => {
+      res.status(204).end();
+    })
+    .catch((err) => {
+      next(err);
+    });
 });
 
-app.post("/api/persons", (req, res) => {
+app.put("/api/persons/:id", (req, res, next) => {
+  const { name, number } = req.body;
+  Person.findByIdAndUpdate(
+    req.params.id,
+    { name, number },
+    { runValidators: true, new: true }
+  )
+    .then((dbRes) => {
+      console.log(`${name}\'s number is updated successfully.`);
+      console.log(dbRes);
+      res.status(201);
+      res.json(dbRes);
+    })
+    .catch((err) => {
+      next(err);
+    });
+});
+
+app.post("/api/persons", (req, res, next) => {
   const data = req.body;
-  const invalidName = persons.find((p) => p.name === data.name);
-  if (data.name == false || data.number == false || invalidName) {
+  if (data.name == false || data.number == false) {
     if (!data.name || !data.number) {
       res.statusMessage = "content missing";
       res.status(400).json({ error: "content missing" });
       return;
     }
-    res.statusMessage = "name duplication";
-    res.status(400).json({ error: "name must be unique" });
-    return;
   }
-  const newPerson = {
-    id: Number((Math.random() * 1000).toFixed(0)),
+  const newPerson = new Person({
     name: data.name,
     number: data.number,
-  };
-  console.log("new person is created");
-  res.json(newPerson);
-  persons = persons.concat(newPerson);
+  });
+  newPerson
+    .save()
+    .then((person) => {
+      console.log("new person is added to database");
+      res.status(201);
+      res.json(person);
+    })
+    .catch((err) => next(err));
 });
-const PORT = process.env.PORT || 3001;
+
+app.use(errorHandler);
+const PORT = process.env.PORT;
 app.listen(PORT, () => console.log(`Server is listening on port ${PORT}`));
