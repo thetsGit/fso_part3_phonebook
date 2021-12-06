@@ -4,7 +4,7 @@ const morgan = require("morgan");
 const cors = require("cors");
 const Person = require("./models/person");
 
-morgan.token("resData", (req, res) => JSON.stringify(req.body));
+morgan.token("resData", (req) => JSON.stringify(req.body));
 
 const app = express();
 const errorHandler = (err, req, res, next) => {
@@ -61,7 +61,7 @@ app.get("/api/persons/:id", (req, res, next) => {
 app.delete("/api/persons/:id", (req, res, next) => {
   const id = req.params.id;
   Person.findByIdAndDelete(id)
-    .then((response) => {
+    .then(() => {
       res.status(204).end();
     })
     .catch((err) => {
@@ -77,7 +77,7 @@ app.put("/api/persons/:id", (req, res, next) => {
     { runValidators: true, new: true }
   )
     .then((dbRes) => {
-      console.log(`${name}\'s number is updated successfully.`);
+      console.log(`${name}'s number is updated successfully.`);
       console.log(dbRes);
       res.status(201);
       res.json(dbRes);
@@ -89,7 +89,7 @@ app.put("/api/persons/:id", (req, res, next) => {
 
 app.post("/api/persons", (req, res, next) => {
   const data = req.body;
-  if (data.name == false || data.number == false) {
+  if (data.name === false || data.number === false) {
     if (!data.name || !data.number) {
       res.statusMessage = "content missing";
       res.status(400).json({ error: "content missing" });
@@ -111,5 +111,5 @@ app.post("/api/persons", (req, res, next) => {
 });
 
 app.use(errorHandler);
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Server is listening on port ${PORT}`));

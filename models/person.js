@@ -4,7 +4,7 @@ const url = process.env.MONGODB_URL;
 console.log(url);
 mongoose
   .connect(url)
-  .then((res) => {
+  .then(() => {
     console.log("Database has been connected.");
   })
   .catch((err) => {
